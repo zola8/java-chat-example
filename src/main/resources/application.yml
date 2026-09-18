@@ -1,10 +1,14 @@
 springdoc:
   api-docs:
-    enabled: true
+    path: /v3/api-docs
   swagger-ui:
-    enabled: true
+    path: /swagger-ui.html
 
 spring:
   threads:
     virtual:
+      enabled: true
+
+  mvc:
+    problemdetails:
       enabled: true
