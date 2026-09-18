@@ -3,6 +3,7 @@ package com.example.agent.api;
 
 import com.example.agent.api.dto.ChatRequest;
 import com.example.agent.api.dto.ChatResponse;
+import com.example.agent.services.ChatService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -13,36 +14,22 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/v1/chat")
-@Tag(name = "Chat", description = "Minimal MVP chat endpoint")
+@Tag(name = "Chat", description = "Chat endpoint")
 public class ChatController {
 
-    Logger logger = LoggerFactory.getLogger(ChatController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatController.class);
+    private final ChatService chatService;
+
+    public ChatController(ChatService chatService) {
+        this.chatService = chatService;
+    }
 
     @PostMapping("/")
-    @Operation(
-        summary = "Send chat message",
-        description = "MVP endpoint. Returns an echo response for now."
-    )
+    @Operation(summary = "Send chat message")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-
-        String conversationId = request.conversationId();
-
-        if (conversationId == null || conversationId.isBlank()) {
-            conversationId = UUID.randomUUID().toString();
-        }
-
-        String reply = "Echo: " + request.message();
-
-        return new ChatResponse(
-            conversationId,
-            reply,
-            Instant.now()
-        );
+        return chatService.chat(request);
     }
 
 
