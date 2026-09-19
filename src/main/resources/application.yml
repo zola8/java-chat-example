@@ -1,19 +1,6 @@
 spring:
-  threads:
-    virtual:
-      enabled: true
-
-  mvc:
-    async:
-      request-timeout: 60s
-    problemdetails:
-      enabled: true
-
-  spring:
-    jackson:
-      default-property-inclusion: non_null
-      deserialization:
-        fail-on-unknown-properties: false
+  application:
+    name: agent-service
 
   datasource:
     url: jdbc:h2:mem:agentdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -36,6 +23,12 @@ spring:
       settings:
         web-allow-others: true
 
+  mvc:
+    async:
+      request-timeout: 60s
+    problemdetails:
+      enabled: true
+
 server:
   port: 8080
 
@@ -44,3 +37,7 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
