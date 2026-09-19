@@ -1,84 +1,39 @@
 package com.example.agent.services;
 
+
 import com.example.agent.api.dto.ChatRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
 @Service
 public class DummyStreamingChatService implements StreamingChatService {
 
     private static final String[] CHUNKS = {
-        "Hello",
-        " from",
-        " the",
-        " dummy",
-        " streaming",
-        " service."
+        "Hello", " from", " the", " dummy", " streaming", " service.",
+        " I", " am", " now", " integrated", " with", " persistence!"
     };
 
     @Override
-    public void stream(
-        ChatRequest request,
-        BooleanSupplier active,
-        StreamListener listener
-    ) {
+    public void stream(ChatRequest request, BooleanSupplier active, StreamListener listener) {
+        try {
+            Thread.sleep(300); // Simulate initial thinking
 
-        Thread.ofVirtual()
-            .name("dummy-streaming-chat")
-            .start(() -> {
+            for (String chunk : CHUNKS) {
+                if (!active.getAsBoolean()) return;
 
-                try {
-                    String conversationId = request.conversationId();
+                Thread.sleep(150); // Simulate token generation speed
+                if (!active.getAsBoolean()) return;
 
-                    if (conversationId == null || conversationId.isBlank()) {
-                        conversationId = UUID.randomUUID().toString();
-                    }
+                listener.onToken(chunk);
+            }
 
-                    StringBuilder fullMessage = new StringBuilder();
+            // Signal completion (Orchestrator handles the final text assembly)
+            listener.onComplete(null, null);
 
-                    if (!active.getAsBoolean()) {
-                        return;
-                    }
-
-                    // Simulate initial thinking time
-                    Thread.sleep(300);
-
-                    for (String chunk : CHUNKS) {
-
-                        if (!active.getAsBoolean()) {
-                            return;
-                        }
-
-                        // Simulate token generation delay
-                        Thread.sleep(400);
-
-                        if (!active.getAsBoolean()) {
-                            return;
-                        }
-
-                        listener.onToken(chunk);
-                        fullMessage.append(chunk);
-                    }
-
-                    if (!active.getAsBoolean()) {
-                        return;
-                    }
-
-                    // Simulate finalization delay
-                    Thread.sleep(200);
-
-                    listener.onComplete(
-                        conversationId,
-                        fullMessage.toString()
-                    );
-
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                } catch (Exception exception) {
-                    listener.onError(exception);
-                }
-            });
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
+
 }
