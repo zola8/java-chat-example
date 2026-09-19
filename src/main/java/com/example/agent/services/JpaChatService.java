@@ -11,6 +11,8 @@ import com.example.agent.persistence.entity.ConversationEntity;
 import com.example.agent.persistence.entity.MessageEntity;
 import com.example.agent.persistence.repository.ConversationRepository;
 import com.example.agent.persistence.repository.MessageRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,8 @@ import java.util.UUID;
 
 @Service
 public class JpaChatService implements ChatService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(JpaChatService.class);
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
@@ -40,6 +44,7 @@ public class JpaChatService implements ChatService {
 
         if (conversationId == null || conversationId.isBlank()) {
             conversationId = UUID.randomUUID().toString();
+            LOGGER.debug("No conversationId, found, creating new one: {}", conversationId);
         }
 
         String finalConversationId = conversationId;

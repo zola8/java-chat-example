@@ -4,8 +4,16 @@ spring:
       enabled: true
 
   mvc:
+    async:
+      request-timeout: 60s
     problemdetails:
       enabled: true
+
+  spring:
+    jackson:
+      default-property-inclusion: non_null
+      deserialization:
+        fail-on-unknown-properties: false
 
   datasource:
     url: jdbc:h2:mem:agentdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
