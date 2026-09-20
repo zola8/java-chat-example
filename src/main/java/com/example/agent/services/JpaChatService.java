@@ -40,6 +40,8 @@ public class JpaChatService implements ChatService {
         // 1. Save user message
         String conversationId = conversationManager.saveUserMessage(request);
 
+        LOGGER.debug("Sync chat started | conversationId={}", conversationId);
+
         // 2. Load full history (System Prompt + History + Current User Message)
         List<Message> promptMessages = conversationManager.getPromptMessages(conversationId);
 
@@ -55,6 +57,12 @@ public class JpaChatService implements ChatService {
         }
 
         if (reply == null) reply = "";
+
+        LOGGER.debug(
+            "Sync chat completed | conversationId={} | replyLength={}",
+            conversationId,
+            reply.length()
+        );
 
         // 4. Save assistant message
         conversationManager.saveAssistantMessage(conversationId, reply);
@@ -74,6 +82,8 @@ public class JpaChatService implements ChatService {
             try {
                 // 1. Save user message
                 String conversationId = conversationManager.saveUserMessage(request);
+
+                LOGGER.debug("Stream chat started | conversationId={}", conversationId);
 
                 // 2. Load full history
                 List<Message> promptMessages = conversationManager.getPromptMessages(conversationId);
@@ -100,6 +110,12 @@ public class JpaChatService implements ChatService {
                                     conversationId, fullMessage.toString());
                                 sink.sendDone(conversationId, fullMessage.toString());
                                 sink.close();
+
+                                LOGGER.debug(
+                                    "Stream chat completed | conversationId={} | replyLength={}",
+                                    conversationId,
+                                    fullMessage.length()
+                                );
                             }
                         }
 
@@ -108,6 +124,8 @@ public class JpaChatService implements ChatService {
                             if (sink.isActive()) {
                                 sink.sendError("STREAM_ERROR", error.getMessage());
                                 sink.close();
+
+                                LOGGER.debug("Stream chat error | conversationId={}", conversationId, error);
                             }
                         }
                     }

@@ -1,6 +1,8 @@
 package com.example.agent.services;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
@@ -14,6 +16,8 @@ import java.util.function.BooleanSupplier;
 @Service
 public class SpringAiStreamingChatService implements StreamingChatService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SpringAiStreamingChatService.class);
+
     private final ChatClient chatClient;
 
     public SpringAiStreamingChatService(ChatModel chatModel) {
@@ -22,6 +26,8 @@ public class SpringAiStreamingChatService implements StreamingChatService {
 
     @Override
     public void stream(List<Message> messages, BooleanSupplier active, StreamListener listener) {
+
+        LOGGER.debug("Starting streaming LLM call | messageCount={}", messages.size());
 
         Flux<ChatResponse> flux = chatClient.prompt()
             .messages(messages)

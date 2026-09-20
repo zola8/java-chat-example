@@ -10,6 +10,8 @@ import com.example.agent.persistence.entity.ConversationEntity;
 import com.example.agent.persistence.entity.MessageEntity;
 import com.example.agent.persistence.repository.ConversationRepository;
 import com.example.agent.persistence.repository.MessageRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -24,6 +26,8 @@ import java.util.UUID;
 
 @Service
 public class ConversationManager {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConversationManager.class);
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
@@ -43,6 +47,12 @@ public class ConversationManager {
             conversationId = UUID.randomUUID().toString();
         }
 
+        LOGGER.debug(
+            "Saving USER message | conversationId={} | messageLength={}",
+            conversationId,
+            request.message() != null ? request.message().length() : 0
+        );
+
         String finalConversationId = conversationId;
         ConversationEntity conversation = conversationRepository
             .findById(conversationId)
@@ -56,6 +66,12 @@ public class ConversationManager {
 
     @Transactional
     public void saveAssistantMessage(String conversationId, String content) {
+        LOGGER.debug(
+            "Saving ASSISTANT message | conversationId={} | messageLength={}",
+            conversationId,
+            content != null ? content.length() : 0
+        );
+
         conversationRepository.findById(conversationId).ifPresent(conversation -> {
             conversation.addMessage(new MessageEntity(Role.ASSISTANT, content, Instant.now()));
             conversationRepository.save(conversation);
@@ -90,6 +106,12 @@ public class ConversationManager {
         // 2. Load history from DB
         List<MessageEntity> history = messageRepository
             .findByConversationIdOrderByCreatedAtAsc(conversationId);
+
+        LOGGER.debug(
+            "Loaded conversation history | conversationId={} | historyMessages={}",
+            conversationId,
+            history.size()
+        );
 
         // 3. Map DB entities to Spring AI Messages
         for (MessageEntity entity : history) {
