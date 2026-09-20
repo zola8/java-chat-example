@@ -19,5 +19,5 @@ http://localhost:8080/h2-console
 ## Test
 
 ```shell
-curl -N -X POST http://localhost:8080/api/v1/chat/stream -H "Content-Type: application/json" -d "{\"message\":\"Test persistence\"}"
+curl -N -X POST http://localhost:8080/api/v1/chat/stream -H "Content-Type: application/json" -d "{\"message\":\"Write a short poem about Java virtual threads\"}"
 ```

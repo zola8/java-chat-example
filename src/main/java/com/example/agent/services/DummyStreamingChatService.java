@@ -2,11 +2,10 @@ package com.example.agent.services;
 
 
 import com.example.agent.api.dto.ChatRequest;
-import org.springframework.stereotype.Service;
 
 import java.util.function.BooleanSupplier;
 
-@Service
+//@Service
 public class DummyStreamingChatService implements StreamingChatService {
 
     private static final String[] CHUNKS = {

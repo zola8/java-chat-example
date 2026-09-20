@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
 public class OllamaConfig {
@@ -20,13 +21,20 @@ public class OllamaConfig {
             throw new IllegalStateException("OLLAMA_API_KEY environment variable is not set!");
         }
 
+        // 1. RestClient for synchronous calls (.call())
         RestClient.Builder restClientBuilder = RestClient.builder()
+            .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+
+        // 2. WebClient for streaming calls (.stream())
+        WebClient.Builder webClientBuilder = WebClient.builder()
             .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
             .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json");
 
         return OllamaApi.builder()
             .baseUrl("https://ollama.com")
             .restClientBuilder(restClientBuilder)
+            .webClientBuilder(webClientBuilder)
             .build();
     }
 
