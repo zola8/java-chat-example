@@ -1,13 +1,14 @@
 package com.example.agent.services;
 
 
-import com.example.agent.api.dto.ChatRequest;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 @Service
@@ -20,10 +21,10 @@ public class SpringAiStreamingChatService implements StreamingChatService {
     }
 
     @Override
-    public void stream(ChatRequest request, BooleanSupplier active, StreamListener listener) {
+    public void stream(List<Message> messages, BooleanSupplier active, StreamListener listener) {
 
         Flux<ChatResponse> flux = chatClient.prompt()
-            .user(request.message())
+            .messages(messages)
             .stream()
             .chatResponse();
 
@@ -33,7 +34,6 @@ public class SpringAiStreamingChatService implements StreamingChatService {
                     return;
                 }
 
-                // Extract the text chunk
                 if (chatResponse != null
                     && chatResponse.getResult() != null
                     && chatResponse.getResult().getOutput() != null) {
@@ -58,4 +58,5 @@ public class SpringAiStreamingChatService implements StreamingChatService {
             }
         );
     }
+
 }

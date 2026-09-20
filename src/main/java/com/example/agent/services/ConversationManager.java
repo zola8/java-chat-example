@@ -10,10 +10,15 @@ import com.example.agent.persistence.entity.ConversationEntity;
 import com.example.agent.persistence.entity.MessageEntity;
 import com.example.agent.persistence.repository.ConversationRepository;
 import com.example.agent.persistence.repository.MessageRepository;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,4 +76,31 @@ public class ConversationManager {
 
         return new ConversationResponse(conversation.getId(), conversation.getCreatedAt(), messages);
     }
+
+    /**
+     * Loads conversation history and formats it for the LLM prompt.
+     */
+    @Transactional(readOnly = true)
+    public List<Message> getPromptMessages(String conversationId) {
+        List<Message> promptMessages = new ArrayList<>();
+
+        // 1. Add System Prompt
+        promptMessages.add(new SystemMessage("You are a helpful, concise AI assistant. Answer briefly."));
+
+        // 2. Load history from DB
+        List<MessageEntity> history = messageRepository
+            .findByConversationIdOrderByCreatedAtAsc(conversationId);
+
+        // 3. Map DB entities to Spring AI Messages
+        for (MessageEntity entity : history) {
+            if (entity.getRole() == Role.USER) {
+                promptMessages.add(new UserMessage(entity.getContent()));
+            } else if (entity.getRole() == Role.ASSISTANT) {
+                promptMessages.add(new AssistantMessage(entity.getContent()));
+            }
+        }
+
+        return promptMessages;
+    }
+
 }

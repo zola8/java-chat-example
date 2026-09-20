@@ -1,14 +1,15 @@
 package com.example.agent.services;
 
-import com.example.agent.api.dto.ChatRequest;
+import org.springframework.ai.chat.messages.Message;
 
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 
 public interface StreamingChatService {
 
     void stream(
-        ChatRequest request,
+        List<Message> messages,
         BooleanSupplier active,
         StreamListener listener
     );
