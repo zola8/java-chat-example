@@ -69,3 +69,8 @@ logging:
 app:
   chat:
     max-history-messages: 20
+
+  ollama:
+    local:
+      base-url: http://localhost:11434
+      embedding-model: mxbai-embed-large
