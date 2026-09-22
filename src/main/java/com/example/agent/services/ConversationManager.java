@@ -16,11 +16,16 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,18 +36,23 @@ public class ConversationManager {
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final int maxHistoryMessages;
 
     public ConversationManager(
         ConversationRepository conversationRepository,
-        MessageRepository messageRepository
+        MessageRepository messageRepository,
+        @Value("${app.chat.max-history-messages:20}") int maxHistoryMessages
     ) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
+        this.maxHistoryMessages = maxHistoryMessages;
     }
 
     @Transactional
     public String saveUserMessage(ChatRequest request) {
+
         String conversationId = request.conversationId();
+
         if (conversationId == null || conversationId.isBlank()) {
             conversationId = UUID.randomUUID().toString();
         }
@@ -58,7 +68,14 @@ public class ConversationManager {
             .findById(conversationId)
             .orElseGet(() -> new ConversationEntity(finalConversationId, Instant.now()));
 
-        conversation.addMessage(new MessageEntity(Role.USER, request.message(), Instant.now()));
+        conversation.addMessage(
+            new MessageEntity(
+                Role.USER,
+                request.message(),
+                Instant.now()
+            )
+        );
+
         conversationRepository.save(conversation);
 
         return conversationId;
@@ -73,13 +90,21 @@ public class ConversationManager {
         );
 
         conversationRepository.findById(conversationId).ifPresent(conversation -> {
-            conversation.addMessage(new MessageEntity(Role.ASSISTANT, content, Instant.now()));
+            conversation.addMessage(
+                new MessageEntity(
+                    Role.ASSISTANT,
+                    content,
+                    Instant.now()
+                )
+            );
+
             conversationRepository.save(conversation);
         });
     }
 
     @Transactional(readOnly = true)
     public ConversationResponse getConversation(String conversationId) {
+
         ConversationEntity conversation = conversationRepository
             .findById(conversationId)
             .orElseThrow(() -> new ConversationNotFoundException(conversationId));
@@ -87,33 +112,56 @@ public class ConversationManager {
         List<MessageResponse> messages = messageRepository
             .findByConversationIdOrderByCreatedAtAsc(conversationId)
             .stream()
-            .map(m -> new MessageResponse(m.getRole(), m.getContent(), m.getCreatedAt()))
+            .map(message -> new MessageResponse(
+                message.getRole(),
+                message.getContent(),
+                message.getCreatedAt()
+            ))
             .toList();
 
-        return new ConversationResponse(conversation.getId(), conversation.getCreatedAt(), messages);
+        return new ConversationResponse(
+            conversation.getId(),
+            conversation.getCreatedAt(),
+            messages
+        );
     }
 
-    /**
-     * Loads conversation history and formats it for the LLM prompt.
-     */
     @Transactional(readOnly = true)
     public List<Message> getPromptMessages(String conversationId) {
+
         List<Message> promptMessages = new ArrayList<>();
 
-        // 1. Add System Prompt
-        promptMessages.add(new SystemMessage("You are a helpful, concise AI assistant. Answer briefly."));
+        promptMessages.add(
+            new SystemMessage("You are a helpful, concise AI assistant.")
+        );
 
-        // 2. Load history from DB
-        List<MessageEntity> history = messageRepository
-            .findByConversationIdOrderByCreatedAtAsc(conversationId);
+        if (maxHistoryMessages <= 0) {
+            LOGGER.debug(
+                "History limit disabled | conversationId={} | maxHistoryMessages=0",
+                conversationId
+            );
+            return promptMessages;
+        }
+
+        Pageable pageable = PageRequest.of(
+            0,
+            maxHistoryMessages,
+            Sort.by(Sort.Direction.DESC, "id")
+        );
+
+        List<MessageEntity> history = new ArrayList<>(
+            messageRepository.findByConversationId(conversationId, pageable)
+        );
+
+        Collections.reverse(history);
 
         LOGGER.debug(
-            "Loaded conversation history | conversationId={} | historyMessages={}",
+            "Loaded conversation history for prompt | conversationId={} | maxHistoryMessages={} | loadedMessages={}",
             conversationId,
+            maxHistoryMessages,
             history.size()
         );
 
-        // 3. Map DB entities to Spring AI Messages
         for (MessageEntity entity : history) {
             if (entity.getRole() == Role.USER) {
                 promptMessages.add(new UserMessage(entity.getContent()));
@@ -121,6 +169,12 @@ public class ConversationManager {
                 promptMessages.add(new AssistantMessage(entity.getContent()));
             }
         }
+
+        LOGGER.debug(
+            "Prompt assembled | conversationId={} | totalPromptMessages={}",
+            conversationId,
+            promptMessages.size()
+        );
 
         return promptMessages;
     }
