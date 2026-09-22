@@ -1,6 +1,6 @@
 package com.example.agent.agent;
 
-import com.example.agent.tools.TimeTool;
+import com.example.agent.tools.AgentTool;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
@@ -14,17 +14,17 @@ import java.util.List;
 public class AIAgent {
 
     private final ChatClient chatClient;
-    private final TimeTool timeTool;
+    private final List<AgentTool> tools;
 
-    public AIAgent(ChatModel chatModel, TimeTool timeTool) {
+    public AIAgent(ChatModel chatModel, List<AgentTool> tools) {
         this.chatClient = ChatClient.builder(chatModel).build();
-        this.timeTool = timeTool;
+        this.tools = tools;
     }
 
     public String generate(List<Message> messages) {
         return chatClient.prompt()
             .messages(messages)
-            .tools(timeTool)
+            .tools(tools.toArray(Object[]::new))
             .call()
             .content();
     }
@@ -32,7 +32,7 @@ public class AIAgent {
     public Flux<ChatResponse> stream(List<Message> messages) {
         return chatClient.prompt()
             .messages(messages)
-            .tools(timeTool)
+            .tools(tools.toArray(Object[]::new))
             .stream()
             .chatResponse();
     }

@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Component
-public class TimeTool {
+public class TimeTool implements AgentTool {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeTool.class);
 
