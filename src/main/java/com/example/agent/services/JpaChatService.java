@@ -1,15 +1,14 @@
 package com.example.agent.services;
 
 
+import com.example.agent.agent.AIAgent;
 import com.example.agent.api.ChatStreamSink;
 import com.example.agent.api.dto.ChatRequest;
 import com.example.agent.api.dto.ChatResponse;
 import com.example.agent.api.dto.ConversationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -21,48 +20,35 @@ public class JpaChatService implements ChatService {
     private static final Logger LOGGER = LoggerFactory.getLogger(JpaChatService.class);
 
     private final ConversationManager conversationManager;
-    private final StreamingChatService streamingGenerator;
-    private final ChatClient chatClient;
+    private final AIAgent aiAgent;
 
     public JpaChatService(
         ConversationManager conversationManager,
-        StreamingChatService streamingGenerator,
-        ChatModel chatModel
+        AIAgent aiAgent
     ) {
         this.conversationManager = conversationManager;
-        this.streamingGenerator = streamingGenerator;
-        this.chatClient = ChatClient.builder(chatModel).build();
+        this.aiAgent = aiAgent;
     }
-
 
     @Override
     public ChatResponse chat(ChatRequest request) {
         // 1. Save user message
         String conversationId = conversationManager.saveUserMessage(request);
 
-        LOGGER.debug("Sync chat started | conversationId={}", conversationId);
-
         // 2. Load full history (System Prompt + History + Current User Message)
         List<Message> promptMessages = conversationManager.getPromptMessages(conversationId);
 
-        // 3. Call Ollama synchronously with the full history
+        // 3. Call the Agent (Tools happen automatically inside!)
         String reply;
         try {
-            reply = chatClient.prompt()
-                .messages(promptMessages)
-                .call()
-                .content();
+            LOGGER.debug("Calling AIAgent synchronously | conversationId={}, Q: {}", conversationId, request.message());
+            reply = aiAgent.generate(promptMessages);
         } catch (Exception exception) {
+            LOGGER.error("AI call failed", exception);
             throw new IllegalStateException("AI call failed", exception);
         }
 
         if (reply == null) reply = "";
-
-        LOGGER.debug(
-            "Sync chat completed | conversationId={} | replyLength={}",
-            conversationId,
-            reply.length()
-        );
 
         // 4. Save assistant message
         conversationManager.saveAssistantMessage(conversationId, reply);
@@ -83,50 +69,41 @@ public class JpaChatService implements ChatService {
                 // 1. Save user message
                 String conversationId = conversationManager.saveUserMessage(request);
 
-                LOGGER.debug("Stream chat started | conversationId={}", conversationId);
-
                 // 2. Load full history
                 List<Message> promptMessages = conversationManager.getPromptMessages(conversationId);
 
                 StringBuilder fullMessage = new StringBuilder();
 
-                // 3. Stream from Ollama using the full history
-                streamingGenerator.stream(
-                    promptMessages,
-                    sink::isActive,
-                    new StreamListener() {
-                        @Override
-                        public void onToken(String token) {
-                            if (sink.isActive()) {
-                                sink.sendToken(token);
-                                fullMessage.append(token);
+                // 3. Stream from the Agent
+                aiAgent.stream(promptMessages).subscribe(
+                    chatResponse -> {
+                        if (!sink.isActive()) return;
+
+                        if (chatResponse != null
+                            && chatResponse.getResult() != null
+                            && chatResponse.getResult().getOutput() != null) {
+
+                            String textChunk = chatResponse.getResult().getOutput().getText();
+                            if (textChunk != null && !textChunk.isEmpty()) {
+                                sink.sendToken(textChunk);
+                                fullMessage.append(textChunk);
                             }
                         }
-
-                        @Override
-                        public void onComplete(String cId, String msg) {
-                            if (sink.isActive()) {
-                                conversationManager.saveAssistantMessage(
-                                    conversationId, fullMessage.toString());
-                                sink.sendDone(conversationId, fullMessage.toString());
-                                sink.close();
-
-                                LOGGER.debug(
-                                    "Stream chat completed | conversationId={} | replyLength={}",
-                                    conversationId,
-                                    fullMessage.length()
-                                );
-                            }
+                    },
+                    error -> {
+                        if (sink.isActive()) {
+                            sink.sendError("STREAM_ERROR", error.getMessage());
+                            sink.close();
                         }
-
-                        @Override
-                        public void onError(Throwable error) {
-                            if (sink.isActive()) {
-                                sink.sendError("STREAM_ERROR", error.getMessage());
-                                sink.close();
-
-                                LOGGER.debug("Stream chat error | conversationId={}", conversationId, error);
-                            }
+                    },
+                    () -> {
+                        if (sink.isActive()) {
+                            conversationManager.saveAssistantMessage(
+                                conversationId,
+                                fullMessage.toString()
+                            );
+                            sink.sendDone(conversationId, fullMessage.toString());
+                            sink.close();
                         }
                     }
                 );

@@ -4,6 +4,7 @@ package com.example.agent.config;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -13,10 +14,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class OllamaConfig {
 
+    @Value("${OLLAMA_API_KEY}")
+    private String apiKey;
+
     @Bean
     public OllamaApi ollamaApi() {
-        String apiKey = System.getenv("OLLAMA_API_KEY");
-
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("OLLAMA_API_KEY environment variable is not set!");
         }
