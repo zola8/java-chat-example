@@ -2,12 +2,22 @@ spring:
   application:
     name: agent-service
 
-  datasource:
-    url: jdbc:h2:file:./data/agentdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+#  datasource:
+#    url: jdbc:h2:file:./data/agentdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
 #    url: jdbc:h2:mem:agentdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+#    driver-class-name: org.h2.Driver
+#    username: sa
+#    password:
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    # HikariCP settings for cloud databases (prevents dropped idle connections)
+    hikari:
+      keepalive-time: 30000
+      max-lifetime: 600000
 
   flyway:
     enabled: true
@@ -24,12 +34,12 @@ spring:
       hibernate:
         format_sql: true
 
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-      settings:
-        web-allow-others: true
+#  h2:
+#    console:
+#      enabled: true
+#      path: /h2-console
+#      settings:
+#        web-allow-others: true
 
   mvc:
     async:
