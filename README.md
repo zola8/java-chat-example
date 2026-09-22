@@ -1,5 +1,30 @@
 # java-chat-example
 
+**Spring Boot Agentic RAG Application**
+
+This project is a production-ready, agentic AI chat backend that combines conversational memory, tool execution,
+and Retrieval-Augmented Generation (RAG).
+Built on Spring Boot 3 and Spring AI, it streams responses via Server-Sent Events (SSE)
+using a decoupled orchestrator architecture. It leverages a dual-model approach—routing chat generation to a
+cloud-hosted LLM and embedding generation to a local model — while storing vectorized document chunks in a cloud
+PostgreSQL database
+using pgvector.The application supports dynamic tool injection, similarity-thresholded context retrieval,
+and strict infrastructure-as-code practices via Flyway migrations.
+
+1. Foundation: Spring Boot REST API, Swagger UI, and SSE streaming.
+2. Persistence: H2 in-memory → H2 file → Aiven Cloud PostgreSQL with Flyway migrations.
+3. AI Integration: Manual Ollama Cloud configuration (Bearer auth + dual HTTP clients for sync/stream).
+4. Memory: Conversation history loading, prompt assembly, and token-based history limiting.
+5. Streaming Architecture: Extracted SSE logic out of the controller into an orchestrator (`JpaChatService`) and stream
+   sinks.
+6. Agentic Core: Abstracted tool calling via a dynamic `List<AgentTool>` injection pattern.
+7. RAG Infrastructure: Dual-Ollama setup (Cloud LLM for chat, Local `mxbai-embed-large` for embeddings) + pgvector.
+8. RAG Pipeline: Document chunking, ingestion, distance-to-similarity conversion, threshold filtering, and metadata
+   extraction.
+9. Clean Architecture: Extracted retrieval logic into `DocumentRetrievalService`.
+10. Augmentation: Connected the RAG pipeline to the Chat pipeline so the AI answers using your private knowledge base.
+11. TODO .... and I can continue here many things, like guardrails, etc.
+
 ## 1. Prerequisites
 
 #### 1.a) Ollama chat model
