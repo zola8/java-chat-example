@@ -6,9 +6,12 @@ import com.example.agent.api.ChatStreamSink;
 import com.example.agent.api.dto.ChatRequest;
 import com.example.agent.api.dto.ChatResponse;
 import com.example.agent.api.dto.ConversationResponse;
+import com.example.agent.api.dto.rag.SearchResult;
+import com.example.agent.services.rag.DocumentRetrievalService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -21,13 +24,16 @@ public class JpaChatService implements ChatService {
 
     private final ConversationManager conversationManager;
     private final AIAgent aiAgent;
+    private final DocumentRetrievalService retrievalService;
 
     public JpaChatService(
         ConversationManager conversationManager,
-        AIAgent aiAgent
+        AIAgent aiAgent,
+        DocumentRetrievalService retrievalService
     ) {
         this.conversationManager = conversationManager;
         this.aiAgent = aiAgent;
+        this.retrievalService = retrievalService;
     }
 
     @Override
@@ -38,11 +44,16 @@ public class JpaChatService implements ChatService {
         // 2. Load full history (System Prompt + History + Current User Message)
         List<Message> promptMessages = conversationManager.getPromptMessages(conversationId);
 
+        // --- RAG AUGMENTATION START ---
+        augmentPromptWithRag(promptMessages, request.message());
+        // --- RAG AUGMENTATION END ---
+
         // 3. Call the Agent (Tools happen automatically inside!)
         String reply;
         try {
-            LOGGER.debug("Calling AIAgent synchronously | conversationId={}, Q: {}", conversationId, request.message());
+            LOGGER.debug("Q: {}", request.message());
             reply = aiAgent.generate(promptMessages);
+            LOGGER.debug("A: {}", reply);
         } catch (Exception exception) {
             LOGGER.error("AI call failed", exception);
             throw new IllegalStateException("AI call failed", exception);
@@ -71,6 +82,10 @@ public class JpaChatService implements ChatService {
 
                 // 2. Load full history
                 List<Message> promptMessages = conversationManager.getPromptMessages(conversationId);
+
+                // --- RAG AUGMENTATION START ---
+                augmentPromptWithRag(promptMessages, request.message());
+                // --- RAG AUGMENTATION END ---
 
                 StringBuilder fullMessage = new StringBuilder();
 
@@ -115,4 +130,50 @@ public class JpaChatService implements ChatService {
         });
     }
 
+
+    /**
+     * Searches the vector store and injects relevant context into the prompt.
+     */
+    private void augmentPromptWithRag(List<Message> promptMessages, String userQuery) {
+        try {
+            LOGGER.debug("Searching RAG context for query: {}", userQuery);
+
+            // Retrieve top 3 relevant chunks
+            List<SearchResult> contextResults = retrievalService.findRelevantContext(userQuery, 3);
+
+            if (!contextResults.isEmpty()) {
+                LOGGER.debug("Found {} RAG chunks. Augmenting prompt.", contextResults.size());
+
+                String contextBlock = formatContext(contextResults);
+
+                String ragInstruction = """
+                    You have access to the following context information from a knowledge base.
+                    Use it to answer the user's question if it is relevant.
+                    If the answer is not in the context, you can rely on your general knowledge, but prefer the context when applicable.
+                    
+                    CONTEXT:
+                    %s
+                    """.formatted(contextBlock);
+
+                // Insert the RAG System Message right before the last User Message
+                int insertIndex = Math.max(0, promptMessages.size() - 1);
+                promptMessages.add(insertIndex, new SystemMessage(ragInstruction));
+            } else {
+                LOGGER.debug("No relevant RAG context found for query.");
+            }
+        } catch (Exception e) {
+            LOGGER.warn("RAG retrieval failed, falling back to standard prompt", e);
+            // We don't throw here. If RAG fails, the AI should still try to answer from memory/training.
+        }
+    }
+
+    private String formatContext(List<SearchResult> results) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < results.size(); i++) {
+            sb.append("[Source ").append(i + 1).append("]\n")
+                .append(results.get(i).content())
+                .append("\n\n");
+        }
+        return sb.toString();
+    }
 }

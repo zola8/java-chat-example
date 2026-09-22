@@ -27,6 +27,7 @@ public class DocumentRetrievalService {
 
     public SearchResponse search(SearchRequest request) {
 
+        // TODO not everything is used, its a placeholder for a possible metadata filter
         LOGGER.debug(
             "RAG search started | query={} | topK={} | minScore={}",
             request.query(),
@@ -110,6 +111,19 @@ public class DocumentRetrievalService {
         return value.length() <= maxLength
             ? value
             : value.substring(0, maxLength) + "...";
+    }
+
+
+    /**
+     * Internal method used by the Chat Service to retrieve context for the AI prompt.
+     */
+    public List<SearchResult> findRelevantContext(String query, int topK) {
+        // We reuse the existing search logic, including the threshold and similarity conversion!
+        // We pass null for category/source/minScore to rely on the default threshold.
+        SearchRequest internalRequest = new SearchRequest(query, topK, null, null, null);
+
+        SearchResponse response = this.search(internalRequest);
+        return response.results();
     }
 
 }
